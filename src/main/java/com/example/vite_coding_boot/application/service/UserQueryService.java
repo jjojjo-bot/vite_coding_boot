@@ -41,4 +41,12 @@ public class UserQueryService implements UserQueryUseCase {
                 .filter(user -> user.getRole() == Role.MEMBER)
                 .toList();
     }
+
+    @Override
+    public User createUser(String username, String password, String name, Role role) {
+        if (userRepository.findByUsername(username).isPresent()) {
+            throw new IllegalArgumentException("이미 존재하는 아이디입니다: " + username);
+        }
+        return userRepository.save(new User(username, password, name, role));
+    }
 }
