@@ -54,7 +54,12 @@ public class DashboardController {
         model.addAttribute("currentPage", "approval-history");
         model.addAttribute("currentStatus", status);
 
-        List<Assignment> assignments = assignmentUseCase.findAllAssignments();
+        List<Assignment> assignments;
+        if (loginUser.isLeader()) {
+            assignments = assignmentUseCase.findAllAssignments();
+        } else {
+            assignments = assignmentUseCase.findAssignmentsByCreatorOrAssignee(loginUser);
+        }
         if (status != null && !status.isEmpty()) {
             assignments = assignments.stream()
                     .filter(a -> a.getApprovalStatus().name().equals(status))
