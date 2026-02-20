@@ -17,4 +17,6 @@ public interface UserQueryUseCase {
     List<User> findAllMembers();
 
     User createUser(String username, String password, String name, Role role);
+
+    void clearOtpResetRequired(Long userId);
 }

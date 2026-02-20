@@ -16,4 +16,8 @@ public interface UserRepository {
     User save(User user);
 
     long count();
+
+    void deleteById(Long id);
+
+    List<User> findByTeamId(Long teamId);
 }

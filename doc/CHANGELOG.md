@@ -1,5 +1,106 @@
 # CHANGELOG
 
+## [7.0.0] - 2026-02-12 14:30 — 대시보드 차트 & 승인 유효성 검증
+
+### 추가
+- `dashboard.html` — 대시보드 상단에 **Chart.js v4 CDN** 기반 진행현황 차트 4종 추가
+  - **요약 카드**: 전체 과제, 승인대기, 진행중, 지연 수치 한눈에 표시
+  - */ex*결재상태 도넛 차트**: PENDING/APPROVED/REJECTED 비율
+  - **진행상태 도넛 차트**: 승인된 과제의 NOT_STARTED/IN_PROGRESS/DELAYED/COMPLETED/DELAYED_COMPLETED 현황
+  - **월별 마감 현황 스택 바 차트**: 월별 마감 과제 수를 상태별로 스택 표시
+  - **본부별 과제 현황 가로 스택 바**: 본부(기술본부/경영본부)별 결재상태 분포
+
+### 수정
+- `AssignmentController.java` — 승인 시 `assigneeUserId`를 `required=false`로 변경, null이면 redirect (400 에러 방지)
+- `dashboard.html`, `approval-history.html` — 승인 폼에 `validateAssignee()` 클라이언트 유효성 검증 추가 (담당자 미선택 시 alert)
+
+---
+
+## [6.1.0] - 2026-02-12 14:10 — AG Grid 버튼 분산 배치 & 페이징
+
+### 변경
+- `dashboard.html` — 기존 "액션" 컬럼에 몰려있던 버튼을 필드별로 분산 배치
+  - **담당자** 컬럼: PENDING 상태일 때 "담당자 선택" 버튼 표시
+  - **결재상태** 컬럼: PENDING 상태일 때 "승인"/"반려" 버튼 표시
+  - **진행상태** 컬럼: APPROVED 상태 + 담당자 본인일 때 "최종결과" 버튼 표시
+  - **관리** 컬럼: "수정"/"삭제" 버튼 (기존 액션 컬럼 대체)
+- `approval-history.html` — 동일하게 버튼 분산 배치 (담당자/결재상태 컬럼)
+- 양쪽 그리드에 **페이징** 추가 (`paginationPageSize: 20`, 10/20/50/100 선택 가능)
+
+### 수정
+- AG Grid CDN 버전 `32.5.2`(404) → `32.2.0`(정상) 으로 변경
+
+---
+
+## [6.0.0] - 2026-02-12 13:35 — 과제 100개 샘플 데이터 & OTP 선택화
+
+### 변경
+- `DataInitializer.java` — 과제 30개 → 100개로 확대 (2026년 1~6월 랜덤 일정, PENDING/APPROVED/REJECTED 혼합)
+  - PENDING ~30%, APPROVED ~50% (60%는 최종결과 입력 완료), REJECTED ~20% (반려사유 포함)
+  - 제목/설명 100종, 반려사유 8종, 최종결과 10종 랜덤 배정
+- `DataInitializer.java` — 리더 하드코딩 OTP 시크릿(`JBSWY3DPEHPK3PXP`) 제거, 모든 사용자 OTP 미설정 상태로 시작
+- `LoginInterceptor.java` — OTP 강제 로직 제거 (OTP 미설정 사용자도 자유롭게 접근)
+- `LoginController.java` — OTP 미설정 시 `/otp-settings` 강제 리다이렉트 제거
+- `DataInitializerTest.java` — 과제 수 30→100, OTP 검증 `assertTrue` → `assertFalse`로 변경
+
+---
+
+## [5.1.0] - 2026-02-12 13:20 — OTP 필수화 (이후 6.0.0에서 선택으로 변경)
+
+### 추가
+- `LoginInterceptor.java` — OTP 미설정 사용자 `/otp-settings` 강제 리다이렉트 로직
+- `LoginController.java` — 로그인 성공 후 OTP 미설정이면 OTP 설정 페이지로 이동
+
+### 수정
+- `OtpSettingsController.java` — 모든 핸들러에서 `showQrCode` 기본값(`false`) 설정 (SpEL null→boolean 변환 오류 수정)
+
+---
+
+## [5.0.0] - 2026-02-12 13:14 — AG Grid Community 적용 & OTP 2차 인증
+
+### 추가
+- **AG Grid Community v32 CDN** 적용
+  - `dashboard.html` — 과제 목록, 조원 목록 테이블을 AG Grid로 교체
+  - `approval-history.html` — 결재함 테이블을 AG Grid로 교체
+  - `defaultColDef: { sortable: true, filter: true, resizable: true }`, `domLayout: 'autoHeight'`
+  - `cellRenderer`로 상태 배지(결재상태/진행상태), 액션 버튼(승인/반려/삭제/수정/최종결과) 재현
+  - `overlayNoRowsTemplate`으로 빈 목록 메시지 표시
+- **OTP 2차 인증 시스템**
+  - `OtpUseCase.java` — OTP 입력 포트 (시크릿 생성, QR 생성, 코드 검증)
+  - `OtpService.java` — TOTP 구현 (`dev.samstevens.totp` 라이브러리)
+  - `OtpSettingsController.java` — OTP 설정/QR표시/검증/해제 컨트롤러
+  - `otp-settings.html` — OTP 설정 페이지 (QR코드 스캔, 6자리 코드 입력, 활성화/해제)
+  - `User.java` — `otpSecret` 필드, `isOtpEnabled()` 메서드 추가
+  - `LoginController.java` — OTP 활성화 사용자 로그인 시 OTP 코드 검증
+  - `login.html` — OTP 코드 입력 필드 추가
+- **팀(조직) 관리**
+  - `Team.java` — 팀 도메인 모델 (본부/실/팀 3계층)
+  - `TeamRepository.java` / `JpaTeamRepository.java` / `TeamPersistenceAdapter.java`
+  - `User.java` — `team` 필드 추가 (ManyToOne)
+  - `DataInitializer.java` — 5개 팀, 10명 추가 사용자 초기 데이터
+
+### 변경
+- `dashboard.html` — `<table>` → AG Grid `<div>` 교체, `membersData`에 `role`/`teamFullName` 필드 추가
+- `approval-history.html` — `<table>` → AG Grid `<div>` 교체, 필터 탭은 서버사이드 유지
+- `build.gradle` — `dev.samstevens.totp:totp:1.7.1` 의존성 추가
+
+---
+
+## [4.1.0] - 2026-02-11 — 대시보드 사이드바, 사용자추가, 결재함 기능 추가
+
+### 추가
+- **사이드바 네비게이션** — 대시보드, 사용자추가(조장), 결재함 메뉴
+- **사용자추가 기능** (`/users/new`) — 조장만 접근 가능, 아이디/비밀번호/이름/역할 입력
+- **결재함 기능** (`/approval-history`) — 전체/승인대기/승인/반려 필터 탭, 조장은 승인대기 목록에서 승인/반려 가능
+- **조직도 모달** — 담당자 선택 시 트리 형태 사용자 목록 표시
+- `user-add.html` — 사용자 추가 페이지
+
+### 변경
+- `dashboard.html` — 사이드바 레이아웃 적용
+- `approval-history.html` — 결재함 전용 페이지 신규 작성
+
+---
+
 ## [4.0.0] - 2026-02-11 — 4단계: 과제 시스템 리팩토링 (전체 사용자 등록/수정, 자동 상태, 최종결과 등록)
 
 ### 핵심 변경

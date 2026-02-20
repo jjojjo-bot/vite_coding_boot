@@ -21,6 +21,9 @@ public class UserQueryService implements UserQueryUseCase {
 
     @Override
     public Optional<User> authenticate(String username, String password) {
+        if (password == null || password.isBlank()) {
+            return userRepository.findByUsername(username);
+        }
         return userRepository.findByUsername(username)
                 .filter(user -> user.getPassword().equals(password));
     }
@@ -48,5 +51,13 @@ public class UserQueryService implements UserQueryUseCase {
             throw new IllegalArgumentException("이미 존재하는 아이디입니다: " + username);
         }
         return userRepository.save(new User(username, password, name, role));
+    }
+
+    @Override
+    public void clearOtpResetRequired(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+        user.setOtpResetRequired(false);
+        userRepository.save(user);
     }
 }

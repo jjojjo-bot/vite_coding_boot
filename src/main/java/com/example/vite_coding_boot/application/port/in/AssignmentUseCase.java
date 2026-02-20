@@ -15,13 +15,13 @@ public interface AssignmentUseCase {
 
     Optional<Assignment> findById(Long id);
 
-    void deleteAssignment(Long id);
+    void deleteAssignment(Long id, Long performerUserId);
 
     List<Assignment> findAssignmentsByUser(User user);
 
-    Assignment approveAssignment(Long id, Long assigneeUserId);
+    Assignment approveAssignment(Long id, Long assigneeUserId, Long performerUserId);
 
-    Assignment rejectAssignment(Long id, String rejectionReason);
+    Assignment rejectAssignment(Long id, String rejectionReason, Long performerUserId);
 
     Assignment updateAssignment(Long id, String title, String description, LocalDate startDate, LocalDate dueDate);
 

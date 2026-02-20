@@ -41,4 +41,14 @@ public class UserPersistenceAdapter implements UserRepository {
     public long count() {
         return jpaUserRepository.count();
     }
+
+    @Override
+    public void deleteById(Long id) {
+        jpaUserRepository.deleteById(id);
+    }
+
+    @Override
+    public List<User> findByTeamId(Long teamId) {
+        return jpaUserRepository.findByTeamId(teamId);
+    }
 }

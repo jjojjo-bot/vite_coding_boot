@@ -10,9 +10,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.vite_coding_boot.application.port.in.AssignmentUseCase;
 import com.example.vite_coding_boot.application.port.out.AssignmentRepository;
+import com.example.vite_coding_boot.application.port.out.AuditLogRepository;
 import com.example.vite_coding_boot.application.port.out.UserRepository;
 import com.example.vite_coding_boot.domain.model.ApprovalStatus;
 import com.example.vite_coding_boot.domain.model.Assignment;
+import com.example.vite_coding_boot.domain.model.AuditAction;
+import com.example.vite_coding_boot.domain.model.AuditLog;
+import com.example.vite_coding_boot.domain.model.AuditTargetType;
 import com.example.vite_coding_boot.domain.model.User;
 
 @Service
@@ -21,10 +25,12 @@ public class AssignmentService implements AssignmentUseCase {
 
     private final AssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
+    private final AuditLogRepository auditLogRepository;
 
-    public AssignmentService(AssignmentRepository assignmentRepository, UserRepository userRepository) {
+    public AssignmentService(AssignmentRepository assignmentRepository, UserRepository userRepository, AuditLogRepository auditLogRepository) {
         this.assignmentRepository = assignmentRepository;
         this.userRepository = userRepository;
+        this.auditLogRepository = auditLogRepository;
     }
 
     @Override
@@ -48,8 +54,17 @@ public class AssignmentService implements AssignmentUseCase {
     }
 
     @Override
-    public void deleteAssignment(Long id) {
+    public void deleteAssignment(Long id, Long performerUserId) {
+        Assignment assignment = assignmentRepository.findById(id).orElse(null);
         assignmentRepository.deleteById(id);
+
+        if (performerUserId != null && assignment != null) {
+            User performer = userRepository.findById(performerUserId).orElse(null);
+            if (performer != null) {
+                auditLogRepository.save(new AuditLog(AuditAction.DELETE, AuditTargetType.ASSIGNMENT, id,
+                        "과제 삭제: " + assignment.getTitle(), performer));
+            }
+        }
     }
 
     @Override
@@ -59,7 +74,7 @@ public class AssignmentService implements AssignmentUseCase {
     }
 
     @Override
-    public Assignment approveAssignment(Long id, Long assigneeUserId) {
+    public Assignment approveAssignment(Long id, Long assigneeUserId, Long performerUserId) {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("과제를 찾을 수 없습니다: " + id));
         if (assignment.getApprovalStatus() != ApprovalStatus.PENDING) {
@@ -70,11 +85,21 @@ public class AssignmentService implements AssignmentUseCase {
         assignment.setUser(assignee);
         assignment.setApprovalStatus(ApprovalStatus.APPROVED);
         assignment.setRejectionReason(null);
-        return assignmentRepository.save(assignment);
+        Assignment saved = assignmentRepository.save(assignment);
+
+        if (performerUserId != null) {
+            User performer = userRepository.findById(performerUserId).orElse(null);
+            if (performer != null) {
+                auditLogRepository.save(new AuditLog(AuditAction.APPROVE, AuditTargetType.ASSIGNMENT, id,
+                        "과제 승인: " + assignment.getTitle() + " → " + assignee.getName(), performer));
+            }
+        }
+
+        return saved;
     }
 
     @Override
-    public Assignment rejectAssignment(Long id, String rejectionReason) {
+    public Assignment rejectAssignment(Long id, String rejectionReason, Long performerUserId) {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("과제를 찾을 수 없습니다: " + id));
         if (assignment.getApprovalStatus() != ApprovalStatus.PENDING) {
@@ -82,7 +107,17 @@ public class AssignmentService implements AssignmentUseCase {
         }
         assignment.setApprovalStatus(ApprovalStatus.REJECTED);
         assignment.setRejectionReason(rejectionReason);
-        return assignmentRepository.save(assignment);
+        Assignment saved = assignmentRepository.save(assignment);
+
+        if (performerUserId != null) {
+            User performer = userRepository.findById(performerUserId).orElse(null);
+            if (performer != null) {
+                auditLogRepository.save(new AuditLog(AuditAction.REJECT, AuditTargetType.ASSIGNMENT, id,
+                        "과제 반려: " + assignment.getTitle() + " (사유: " + rejectionReason + ")", performer));
+            }
+        }
+
+        return saved;
     }
 
     @Override

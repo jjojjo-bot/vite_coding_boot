@@ -22,9 +22,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.example.vite_coding_boot.application.port.out.AssignmentRepository;
+import com.example.vite_coding_boot.application.port.out.AuditLogRepository;
 import com.example.vite_coding_boot.application.port.out.UserRepository;
 import com.example.vite_coding_boot.domain.model.ApprovalStatus;
 import com.example.vite_coding_boot.domain.model.Assignment;
+import com.example.vite_coding_boot.domain.model.AuditLog;
 import com.example.vite_coding_boot.domain.model.Role;
 import com.example.vite_coding_boot.domain.model.User;
 
@@ -37,17 +39,23 @@ class AssignmentServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private AuditLogRepository auditLogRepository;
+
     @InjectMocks
     private AssignmentService assignmentService;
 
     private User creator;
     private User member;
+    private User leader;
     private Assignment assignment;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         creator = new User("member1", "1234", "조원1", Role.MEMBER);
         member = new User("member2", "1234", "조원2", Role.MEMBER);
+        leader = new User("leader", "1234", "조장", Role.LEADER);
+        setUserId(leader, 100L);
         assignment = new Assignment("과제1", "설명1", creator, LocalDate.of(2099, 1, 1), LocalDate.of(2099, 12, 31));
     }
 
@@ -101,9 +109,14 @@ class AssignmentServiceTest {
 
     @Test
     void deleteAssignment_callsRepository() {
-        assignmentService.deleteAssignment(1L);
+        when(assignmentRepository.findById(1L)).thenReturn(Optional.of(assignment));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(leader));
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assignmentService.deleteAssignment(1L, 100L);
 
         verify(assignmentRepository).deleteById(1L);
+        verify(auditLogRepository).save(any(AuditLog.class));
     }
 
     @Test
@@ -120,13 +133,16 @@ class AssignmentServiceTest {
         setUserId(member, 2L);
         when(assignmentRepository.findById(1L)).thenReturn(Optional.of(assignment));
         when(userRepository.findById(2L)).thenReturn(Optional.of(member));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(leader));
         when(assignmentRepository.save(any(Assignment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Assignment result = assignmentService.approveAssignment(1L, 2L);
+        Assignment result = assignmentService.approveAssignment(1L, 2L, 100L);
 
         assertEquals(ApprovalStatus.APPROVED, result.getApprovalStatus());
         assertEquals(member, result.getUser());
         verify(assignmentRepository).save(assignment);
+        verify(auditLogRepository).save(any(AuditLog.class));
     }
 
     @Test
@@ -135,7 +151,7 @@ class AssignmentServiceTest {
         when(assignmentRepository.findById(1L)).thenReturn(Optional.of(assignment));
 
         assertThrows(IllegalStateException.class,
-                () -> assignmentService.approveAssignment(1L, 2L));
+                () -> assignmentService.approveAssignment(1L, 2L, 100L));
     }
 
     @Test
@@ -143,19 +159,22 @@ class AssignmentServiceTest {
         when(assignmentRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(IllegalArgumentException.class,
-                () -> assignmentService.approveAssignment(999L, 2L));
+                () -> assignmentService.approveAssignment(999L, 2L, 100L));
     }
 
     @Test
     void rejectAssignment_success() {
         when(assignmentRepository.findById(1L)).thenReturn(Optional.of(assignment));
         when(assignmentRepository.save(any(Assignment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(leader));
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Assignment result = assignmentService.rejectAssignment(1L, "내용 부족");
+        Assignment result = assignmentService.rejectAssignment(1L, "내용 부족", 100L);
 
         assertEquals(ApprovalStatus.REJECTED, result.getApprovalStatus());
         assertEquals("내용 부족", result.getRejectionReason());
         verify(assignmentRepository).save(assignment);
+        verify(auditLogRepository).save(any(AuditLog.class));
     }
 
     @Test
@@ -164,7 +183,7 @@ class AssignmentServiceTest {
         when(assignmentRepository.findById(1L)).thenReturn(Optional.of(assignment));
 
         assertThrows(IllegalStateException.class,
-                () -> assignmentService.rejectAssignment(1L, "사유"));
+                () -> assignmentService.rejectAssignment(1L, "사유", 100L));
     }
 
     @Test
@@ -172,7 +191,7 @@ class AssignmentServiceTest {
         when(assignmentRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(IllegalArgumentException.class,
-                () -> assignmentService.rejectAssignment(999L, "사유"));
+                () -> assignmentService.rejectAssignment(999L, "사유", 100L));
     }
 
     @Test
